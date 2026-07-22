@@ -1,4 +1,4 @@
-[200~# n8n workflow exports — keep these local, not in git
+# n8n workflow exports — keep these local, not in git
 *.json
 # Go build artifacts
 backend/bin/

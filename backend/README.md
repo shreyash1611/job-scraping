@@ -56,7 +56,7 @@ curl "http://localhost:8080/scrape/amazon?roles=Software+Engineer&locations=Indi
   in the search results page as an `AF_initDataCallback` JS blob, which we
   regex-extract and parse as JSON. Field positions were reverse-engineered
   from a live response and could shift if Google changes the page.
-- **Microsoft** - not implemented. Their careers site now runs on
+- **Microsoft** - not implemented and will be WIP by me. Their careers site now runs on
   Eightfold.ai and gates its job search API behind a JS-minted auth token
   (confirmed via direct testing: every plain HTTP attempt gets a 403 "Not
   authorized for PCSX", with or without cookies/referer). No server-rendered
@@ -64,4 +64,4 @@ curl "http://localhost:8080/scrape/amazon?roles=Software+Engineer&locations=Indi
   a descriptive error rather than fake/empty results - this is caught by the
   n8n workflow's error handling and logged to the Errors sheet rather than
   breaking the run. A headless browser (e.g. chromedp) is the fallback if
-  Microsoft coverage becomes worth the extra weight.
+  Microsoft coverage becomes worth the extra weight. If you have any experience on scraping eightfold sites, please reach out to me on my LinkedIn.

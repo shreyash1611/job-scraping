@@ -33,20 +33,32 @@ type amazonJob struct {
 	Responsibilities        string `json:"responsibilities"`
 }
 
+// amazonExperienceBuckets are the two junior-facing values Amazon's
+// "industry_experience" facet recognizes for our purposes. Passing both as
+// a repeated "industry_experience[]" key does NOT union them server-side -
+// tested empirically: it just collapses to "one_to_three_years" regardless
+// of order, comma-joining, or indexed-array syntax. So each bucket has to
+// be queried separately and merged here instead.
+var amazonExperienceBuckets = []string{"less_than_1_year", "one_to_three_years"}
+
 func (a *AmazonScraper) Search(params SearchParams) ([]JobPosting, error) {
 	var all []JobPosting
 	countryCode := amazonCountryCodeFor(params.Locations)
 
-	for i, role := range params.Roles {
-		if i > 0 {
-			time.Sleep(400 * time.Millisecond)
-		}
+	first := true
+	for _, role := range params.Roles {
+		for _, bucket := range amazonExperienceBuckets {
+			if !first {
+				time.Sleep(400 * time.Millisecond)
+			}
+			first = false
 
-		jobs, err := a.searchOneRole(role, countryCode)
-		if err != nil {
-			return nil, fmt.Errorf("amazon: role %q: %w", role, err)
+			jobs, err := a.searchOneRole(role, countryCode, bucket)
+			if err != nil {
+				return nil, fmt.Errorf("amazon: role %q (%s): %w", role, bucket, err)
+			}
+			all = append(all, jobs...)
 		}
-		all = append(all, jobs...)
 	}
 
 	all = DedupeByURL(all)
@@ -73,7 +85,7 @@ func amazonCountryCodeFor(locations []string) string {
 	return ""
 }
 
-func (a *AmazonScraper) searchOneRole(role, countryCode string) ([]JobPosting, error) {
+func (a *AmazonScraper) searchOneRole(role, countryCode, experienceBucket string) ([]JobPosting, error) {
 	endpoint := "https://www.amazon.jobs/en/search.json"
 
 	q := url.Values{}
@@ -81,6 +93,14 @@ func (a *AmazonScraper) searchOneRole(role, countryCode string) ([]JobPosting, e
 	q.Set("result_limit", "50")
 	q.Set("offset", "0")
 	q.Set("sort", "recent")
+	// Amazon's search only honors this facet as an array-style key - a bare
+	// "industry_experience=..." is silently ignored and returns the
+	// unfiltered result set. This is a coarse, Amazon-side classification
+	// tag (not a strict text guarantee - some jobs tagged this way still
+	// list 2+/3+ years in their qualifications), so it's a volume
+	// pre-filter, not a substitute for the real YoE filtering in n8n's
+	// "Filter Jobs" node.
+	q.Set("industry_experience[]", experienceBucket)
 	if countryCode != "" {
 		q.Set("country", countryCode)
 	}
