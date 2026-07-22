@@ -1,0 +1,15 @@
+[200~# n8n workflow exports — keep these local, not in git
+*.json
+# Go build artifacts
+backend/bin/
+backend/*.exe
+**/*.test
+# Editor/OS junk
+.DS_Store
+.vscode/
+.idea/
+# Env/secrets, just in case
+.env
+.env.*
+*.pem
+*.key~
