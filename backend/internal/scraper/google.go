@@ -41,6 +41,7 @@ func (g *GoogleScraper) Search(params SearchParams) ([]JobPosting, error) {
 	}
 
 	all = DedupeByURL(all)
+	all = FilterOutInternships(all)
 	all = FilterByLocation(all, params.Locations)
 	return all, nil
 }
@@ -96,8 +97,19 @@ func (g *GoogleScraper) searchOneRole(role string, locations []string) ([]JobPos
 // first element looks like a list of job entries. Google's internal key
 // names (e.g. "ds:1") aren't guaranteed stable, so we detect the right block
 // by shape rather than by key name.
+//
+// That results block is always length 4 - [jobListOrNull, null, offset,
+// pageSize] - where index 0 is JSON null specifically when the query
+// matched zero jobs, not just any time it's not a job-entry array. A query
+// like an Amazon-only title format ("Software Dev Engineer I FTC") sent to
+// Google will legitimately hit this null case, and that's a normal "no
+// results," not a parser/structure failure - so it's tracked separately and
+// only used as a fallback, in case a *later* block in the page turns out to
+// hold real results after all.
 func extractGoogleJobs(pageHTML string) ([][]interface{}, error) {
 	matches := googleDataBlockRe.FindAllStringSubmatch(pageHTML, -1)
+
+	sawEmptyResultsBlock := false
 
 	for _, m := range matches {
 		dataArrJSON, ok := extractDataArray(m[1])
@@ -113,6 +125,11 @@ func extractGoogleJobs(pageHTML string) ([][]interface{}, error) {
 			continue
 		}
 
+		if len(parsed) == 4 && parsed[0] == nil {
+			sawEmptyResultsBlock = true
+			continue
+		}
+
 		jobList, ok := parsed[0].([]interface{})
 		if !ok || len(jobList) == 0 || !looksLikeJobEntry(jobList[0]) {
 			continue
@@ -125,6 +142,10 @@ func extractGoogleJobs(pageHTML string) ([][]interface{}, error) {
 			}
 		}
 		return jobs, nil
+	}
+
+	if sawEmptyResultsBlock {
+		return nil, nil
 	}
 
 	return nil, fmt.Errorf("could not find job data block in Google careers page (site structure may have changed)")

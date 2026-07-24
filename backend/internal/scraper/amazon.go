@@ -62,6 +62,7 @@ func (a *AmazonScraper) Search(params SearchParams) ([]JobPosting, error) {
 	}
 
 	all = DedupeByURL(all)
+	all = FilterOutInternships(all)
 	// Still apply our own filter as a safety net even when countryCode
 	// narrowed the query server-side - e.g. to further narrow to specific
 	// cities, or catch "Remote" postings tagged in ways country= doesn't

@@ -16,6 +16,8 @@ func main() {
 	mux.HandleFunc("GET /scrape/google", handleScrape(scraper.NewGoogleScraper()))
 	mux.HandleFunc("GET /scrape/amazon", handleScrape(scraper.NewAmazonScraper()))
 	mux.HandleFunc("GET /scrape/microsoft", handleScrape(scraper.NewMicrosoftScraper()))
+	mux.HandleFunc("GET /scrape/apple", handleScrape(scraper.NewAppleScraper()))
+	mux.HandleFunc("GET /scrape/uber", handleScrape(scraper.NewUberScraper()))
 
 	addr := ":8080"
 	log.Printf("job scraper backend listening on %s", addr)
