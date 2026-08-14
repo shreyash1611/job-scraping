@@ -16,6 +16,8 @@
   n8n workflow's error handling and logged to the Errors sheet rather than
   breaking the run. A headless browser (e.g. chromedp) is the fallback if
   Microsoft coverage becomes worth the extra weight. If you have any experience on scraping eightfold sites, please reach out to me on my LinkedIn.
+  Update- Found the request format for Microsoft to find data from EightFold in the network console.
+- **Apple** - Added HTML scraping and flatten the data with LLM node on N8N to match our sheet  pattern in JSON format
 
 ## N8N Workflow
 

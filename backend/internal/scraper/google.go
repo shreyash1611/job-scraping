@@ -3,7 +3,6 @@ package scraper
 import (
 	"encoding/json"
 	"fmt"
-	"html"
 	"io"
 	"net/http"
 	"net/url"
@@ -274,22 +273,6 @@ func extractGoogleRichText(v interface{}) string {
 		return ""
 	}
 	return stripHTML(raw)
-}
-
-var htmlTagRe = regexp.MustCompile(`<[^>]*>`)
-
-func stripHTML(s string) string {
-	s = htmlTagRe.ReplaceAllString(s, "\n")
-	s = html.UnescapeString(s)
-
-	lines := strings.Split(s, "\n")
-	cleaned := make([]string, 0, len(lines))
-	for _, line := range lines {
-		if line = strings.TrimSpace(line); line != "" {
-			cleaned = append(cleaned, line)
-		}
-	}
-	return strings.Join(cleaned, "\n")
 }
 
 // extractGoogleTimestamp handles fields shaped like [unixSeconds, nanos]

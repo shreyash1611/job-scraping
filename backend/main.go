@@ -19,6 +19,14 @@ func main() {
 	mux.HandleFunc("GET /scrape/apple", handleScrape(scraper.NewAppleScraper()))
 	mux.HandleFunc("GET /scrape/uber", handleScrape(scraper.NewUberScraper()))
 
+	// All Workday-hosted careers sites, served by one shared scraper.
+	mux.HandleFunc("GET /scrape/nike", handleScrape(scraper.NewNikeScraper()))
+	mux.HandleFunc("GET /scrape/kla", handleScrape(scraper.NewKLAScraper()))
+	mux.HandleFunc("GET /scrape/cisco", handleScrape(scraper.NewCiscoScraper()))
+	mux.HandleFunc("GET /scrape/adobe", handleScrape(scraper.NewAdobeScraper()))
+	mux.HandleFunc("GET /scrape/sprinklr", handleScrape(scraper.NewSprinklrScraper()))
+	mux.HandleFunc("GET /scrape/rakuten", handleScrape(scraper.NewRakutenScraper()))
+
 	addr := ":8080"
 	log.Printf("job scraper backend listening on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, mux))
