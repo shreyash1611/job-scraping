@@ -27,6 +27,10 @@ func main() {
 	mux.HandleFunc("GET /scrape/sprinklr", handleScrape(scraper.NewSprinklrScraper()))
 	mux.HandleFunc("GET /scrape/rakuten", handleScrape(scraper.NewRakutenScraper()))
 
+	// Public Greenhouse boards, served by one shared scraper.
+	mux.HandleFunc("GET /scrape/databricks", handleScrape(scraper.NewDatabricksScraper()))
+	mux.HandleFunc("GET /scrape/okta", handleScrape(scraper.NewOktaScraper()))
+
 	addr := ":8080"
 	log.Printf("job scraper backend listening on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, mux))
