@@ -26,6 +26,69 @@ func NewOktaScraper() *GreenhouseScraper {
 	return &GreenhouseScraper{Company: "Okta", BoardSlug: "okta"}
 }
 
+func greenhouseRegistrations() []Registration {
+	// Every slug below was verified to resolve to a live board on
+	// 2026-08-24. The India column in that check is a snapshot, not a
+	// criterion: boards that had no India engineering roles that day are
+	// still listed, because a board costs one request and the whole point
+	// is to catch a role the day it appears.
+	boards := []struct {
+		slug, company, board string
+		group                int
+	}{
+		{"databricks", "Databricks", "databricks", GroupCore},
+		{"okta", "Okta", "okta", GroupCore},
+		{"zscaler", "Zscaler", "zscaler", GroupProduct},
+		{"gitlab", "GitLab", "gitlab", GroupProduct},
+		{"mongodb", "MongoDB", "mongodb", GroupProduct},
+		{"phonepe", "PhonePe", "phonepe", GroupProduct},
+		{"rubrik", "Rubrik", "rubrik", GroupProduct},
+		{"netskope", "Netskope", "netskope", GroupProduct},
+		{"twilio", "Twilio", "twilio", GroupProduct},
+		{"stripe", "Stripe", "stripe", GroupProduct},
+		{"coinbase", "Coinbase", "coinbase", GroupProduct},
+		{"abnormal", "Abnormal Security", "abnormalsecurity", GroupProduct},
+		{"sumologic", "Sumo Logic", "sumologic", GroupProduct},
+		{"newrelic", "New Relic", "newrelic", GroupProduct},
+		{"postman", "Postman", "postman", GroupProduct},
+		{"samsara", "Samsara", "samsara", GroupProduct},
+		{"airbnb", "Airbnb", "airbnb", GroupProduct},
+		{"elastic", "Elastic", "elastic", GroupProduct},
+		{"adyen", "Adyen", "adyen", GroupProduct},
+		{"cloudflare", "Cloudflare", "cloudflare", GroupProduct},
+		{"anthropic", "Anthropic", "anthropic", GroupProduct},
+		{"datadog", "Datadog", "datadog", GroupProduct},
+		{"harness", "Harness", "harnessinc", GroupProduct},
+		{"razorpay", "Razorpay", "razorpaysoftwareprivatelimited", GroupProduct},
+		{"dropbox", "Dropbox", "dropbox", GroupProduct},
+		{"figma", "Figma", "figma", GroupProduct},
+		{"pinterest", "Pinterest", "pinterest", GroupProduct},
+		{"reddit", "Reddit", "reddit", GroupProduct},
+		{"discord", "Discord", "discord", GroupProduct},
+		{"robinhood", "Robinhood", "robinhood", GroupProduct},
+		{"instacart", "Instacart", "instacart", GroupProduct},
+		{"lyft", "Lyft", "lyft", GroupProduct},
+		{"asana", "Asana", "asana", GroupProduct},
+		{"amplitude", "Amplitude", "amplitude", GroupProduct},
+		{"affirm", "Affirm", "affirm", GroupProduct},
+		{"chime", "Chime", "chime", GroupProduct},
+		{"wise", "Wise", "wise", GroupProduct},
+		{"verkada", "Verkada", "verkada", GroupProduct},
+		{"scaleai", "Scale AI", "scaleai", GroupProduct},
+		{"groww", "Groww", "groww", GroupProduct},
+		{"vercel", "Vercel", "vercel", GroupProduct},
+	}
+
+	regs := make([]Registration, 0, len(boards))
+	for _, b := range boards {
+		b := b
+		regs = append(regs, Registration{Slug: b.slug, Group: b.group, New: func() Scraper {
+			return &GreenhouseScraper{Company: b.company, BoardSlug: b.board}
+		}})
+	}
+	return regs
+}
+
 type greenhouseBoardResponse struct {
 	Jobs []greenhouseJob `json:"jobs"`
 	Meta struct {

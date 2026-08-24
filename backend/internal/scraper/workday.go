@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -62,6 +63,46 @@ func NewRakutenScraper() *WorkdayScraper {
 	return &WorkdayScraper{Company: "Rakuten", Tenant: "rakuten", Shard: "wd1", Site: "RakutenSymphony"}
 }
 
+func workdayRegistrations() []Registration {
+	regs := []Registration{
+		{Slug: "nike", Group: GroupCore, New: func() Scraper { return NewNikeScraper() }},
+		{Slug: "kla", Group: GroupCore, New: func() Scraper { return NewKLAScraper() }},
+		{Slug: "cisco", Group: GroupCore, New: func() Scraper { return NewCiscoScraper() }},
+		{Slug: "adobe", Group: GroupCore, New: func() Scraper { return NewAdobeScraper() }},
+		{Slug: "sprinklr", Group: GroupCore, New: func() Scraper { return NewSprinklrScraper() }},
+		{Slug: "rakuten", Group: GroupCore, New: func() Scraper { return NewRakutenScraper() }},
+	}
+
+	// Tenants added 2026-08-24, each verified to answer the CXS search
+	// endpoint. A table rather than a constructor apiece because config is
+	// the only thing that differs between them.
+	//
+	// Cisco's entry above also covers Splunk: Splunk's careers site now
+	// redirects into careers.cisco.com, which fronts this same tenant.
+	for _, t := range []struct{ slug, company, tenant, shard, site string }{
+		{"nvidia", "NVIDIA", "nvidia", "wd5", "NVIDIAExternalCareerSite"},
+		{"salesforce", "Salesforce", "salesforce", "wd12", "External_Career_Site"},
+		{"autodesk", "Autodesk", "autodesk", "wd1", "Ext"},
+		{"marvell", "Marvell", "marvell", "wd1", "MarvellCareers"},
+		{"samsung", "Samsung", "sec", "wd3", "Samsung_Careers"},
+		{"broadcom", "Broadcom", "broadcom", "wd1", "External_Career"},
+		{"visa", "Visa", "visa", "wd5", "Visa"},
+		{"mastercard", "Mastercard", "mastercard", "wd1", "CorporateCareers"},
+		{"crowdstrike", "CrowdStrike", "crowdstrike", "wd5", "crowdstrikecareers"},
+		{"cadence", "Cadence", "cadence", "wd1", "External_Careers"},
+		{"browserstack", "BrowserStack", "browserstack", "wd3", "External"},
+		// HPE's tenant serves Juniper too, following the acquisition.
+		{"hpe", "HPE", "hpe", "wd5", "Jobsathpe"},
+		{"workdayinc", "Workday", "workday", "wd5", "Workday"},
+	} {
+		t := t
+		regs = append(regs, Registration{Slug: t.slug, Group: GroupEnterprise, New: func() Scraper {
+			return &WorkdayScraper{Company: t.company, Tenant: t.tenant, Shard: t.shard, Site: t.site}
+		}})
+	}
+	return regs
+}
+
 const (
 	// workdayPageLimit is Workday's hard maximum, not a preference: asking
 	// for 21 or more returns HTTP 400.
@@ -90,6 +131,24 @@ var errWorkdayFacetRejected = errors.New("workday: tenant rejected applied facet
 type workdayJobsResponse struct {
 	Total       int                  `json:"total"`
 	JobPostings []workdayJobListItem `json:"jobPostings"`
+	Facets      []workdayFacet       `json:"facets"`
+}
+
+type workdayFacet struct {
+	FacetParameter string              `json:"facetParameter"`
+	Values         []workdayFacetValue `json:"values"`
+}
+
+// workdayFacetValue is either a selectable leaf (Descriptor + ID) or a nested
+// group carrying its own FacetParameter and Values. Location facets arrive
+// wrapped that way: a "locationMainGroup" facet whose single value is the
+// group that actually holds the per-place ids.
+type workdayFacetValue struct {
+	FacetParameter string              `json:"facetParameter"`
+	Descriptor     string              `json:"descriptor"`
+	ID             string              `json:"id"`
+	Count          int                 `json:"count"`
+	Values         []workdayFacetValue `json:"values"`
 }
 
 type workdayJobListItem struct {
@@ -115,7 +174,7 @@ type workdayJobDetailResponse struct {
 }
 
 func (w *WorkdayScraper) Search(params SearchParams) ([]JobPosting, error) {
-	indiaFacet := w.wantsIndia(params.Locations)
+	facets := w.locationFacets(params.Locations)
 
 	var candidates []JobPosting
 	for i, role := range params.Roles {
@@ -123,7 +182,7 @@ func (w *WorkdayScraper) Search(params SearchParams) ([]JobPosting, error) {
 			time.Sleep(400 * time.Millisecond)
 		}
 
-		jobs, err := w.listRole(role, indiaFacet)
+		jobs, err := w.listRole(role, facets)
 		if err != nil {
 			return nil, fmt.Errorf("%s: role %q: %w", strings.ToLower(w.Company), role, err)
 		}
@@ -142,16 +201,14 @@ func (w *WorkdayScraper) Search(params SearchParams) ([]JobPosting, error) {
 	return w.enrich(candidates)
 }
 
-// wantsIndia reports whether to try narrowing the query server-side to India.
+// wantsIndia reports whether to fall back to the shared India country id when
+// a tenant advertises no location facet we can match.
 //
-// Tenants disagree on whether they honor this facet, which is why the result
-// is only ever an optimization and never load-bearing: as of 2026-08-14 Adobe
-// (317 -> 74 hits) and Sprinklr (44 -> 21) apply it correctly, Nike, Cisco
-// and Rakuten silently ignore it and return their unfiltered totals, and KLA
-// rejects it with HTTP 400. FilterByLocation is what actually guarantees
-// correctness in all four cases; this just buys real coverage depth on the
-// tenants that do respect it, since workdayMaxPagesPerRole is spent on
-// India-only results instead of worldwide ones.
+// It is only a fallback because tenants disagree on the parameter name: as of
+// 2026-08-24 Adobe, Sprinklr and Rakuten accept "locationCountry", Cisco and
+// Nike want "locations" (per-city ids), and KLA wants "Country" and answers
+// HTTP 400 to anything else. resolveLocationFacet asks each tenant instead of
+// guessing. FilterByLocation is what guarantees correctness either way.
 func (w *WorkdayScraper) wantsIndia(locations []string) bool {
 	for _, loc := range locations {
 		if strings.EqualFold(strings.TrimSpace(loc), "india") {
@@ -161,7 +218,101 @@ func (w *WorkdayScraper) wantsIndia(locations []string) bool {
 	return false
 }
 
-func (w *WorkdayScraper) listRole(role string, indiaFacet bool) ([]JobPosting, error) {
+// locationFacets builds the appliedFacets payload that narrows a search to the
+// requested places, preferring the tenant's own advertised location facet over
+// the shared country id.
+//
+// This matters more than it looks: the page budget is spent on whatever the
+// tenant returns, so on a tenant that ignores the facet we were paging through
+// the first workdayMaxPagesPerRole*workdayPageLimit results of a worldwide
+// list and throwing nearly all of them away in FilterByLocation. Cisco, for
+// instance, reports 667 hits for "software" worldwide but only 200 in India -
+// so an unfiltered search spends its whole budget mostly on US reqs.
+func (w *WorkdayScraper) locationFacets(locations []string) map[string][]string {
+	if param, ids := w.resolveLocationFacet(locations); len(ids) > 0 {
+		return map[string][]string{param: ids}
+	}
+	if w.wantsIndia(locations) {
+		return map[string][]string{"locationCountry": {workdayIndiaCountryID}}
+	}
+	return nil
+}
+
+// resolveLocationFacet asks the tenant which locations it can filter on and
+// picks the ids matching the requested places. Facet ids are per-tenant, so
+// they're discovered per run rather than hardcoded.
+//
+// Costs one extra request per scrape, which pays for itself immediately by not
+// wasting the page budget on other countries.
+func (w *WorkdayScraper) resolveLocationFacet(locations []string) (string, []string) {
+	wanted := make(map[string]struct{}, len(locations))
+	for _, loc := range locations {
+		loc = strings.TrimSpace(loc)
+		// "Remote" is not a geography. Matching it would select worldwide
+		// remote reqs, which FilterByLocation then waves through on that same
+		// word - so the facet would widen the search rather than narrow it.
+		if loc == "" || strings.EqualFold(loc, "remote") {
+			continue
+		}
+		wanted[strings.ToLower(loc)] = struct{}{}
+	}
+	if len(wanted) == 0 {
+		return "", nil
+	}
+
+	// Empty searchText so the facet list covers the whole tenant rather than
+	// only the places matching one role's results.
+	resp, err := w.postSearch("", 0, nil)
+	if err != nil {
+		return "", nil
+	}
+
+	byParam := make(map[string][]string)
+	for _, facet := range resp.Facets {
+		collectWorkdayLocationIDs(facet.FacetParameter, facet.Values, wanted, byParam)
+	}
+
+	best, bestParam := 0, ""
+	for param, ids := range byParam {
+		if len(ids) > best {
+			best, bestParam = len(ids), param
+		}
+	}
+	if bestParam == "" {
+		return "", nil
+	}
+	return bestParam, byParam[bestParam]
+}
+
+// collectWorkdayLocationIDs walks a facet tree, keeping ids whose descriptor
+// names one of the requested places.
+//
+// Matching is per comma-separated component and exact, not substring: a
+// descriptor like "Indianapolis, Indiana, US" must not match a request for
+// "India", and "Remote - Indiana, USA" must not match "Remote".
+func collectWorkdayLocationIDs(param string, values []workdayFacetValue, wanted map[string]struct{}, out map[string][]string) {
+	for _, value := range values {
+		childParam := param
+		if value.FacetParameter != "" {
+			childParam = value.FacetParameter
+		}
+		if len(value.Values) > 0 {
+			collectWorkdayLocationIDs(childParam, value.Values, wanted, out)
+			continue
+		}
+		if value.ID == "" || value.Descriptor == "" {
+			continue
+		}
+		for _, part := range strings.Split(value.Descriptor, ",") {
+			if _, ok := wanted[strings.ToLower(strings.TrimSpace(part))]; ok {
+				out[childParam] = append(out[childParam], value.ID)
+				break
+			}
+		}
+	}
+}
+
+func (w *WorkdayScraper) listRole(role string, facets map[string][]string) ([]JobPosting, error) {
 	var jobs []JobPosting
 
 	for page := 0; page < workdayMaxPagesPerRole; page++ {
@@ -169,7 +320,7 @@ func (w *WorkdayScraper) listRole(role string, indiaFacet bool) ([]JobPosting, e
 			time.Sleep(250 * time.Millisecond)
 		}
 
-		resp, err := w.fetchPage(role, page*workdayPageLimit, indiaFacet)
+		resp, err := w.fetchPage(role, page*workdayPageLimit, facets)
 		if err != nil {
 			return nil, err
 		}
@@ -194,13 +345,11 @@ func (w *WorkdayScraper) listRole(role string, indiaFacet bool) ([]JobPosting, e
 	return jobs, nil
 }
 
-// fetchPage runs one search request, retrying unfaceted if the tenant
-// rejected the India facet.
-func (w *WorkdayScraper) fetchPage(role string, offset int, indiaFacet bool) (*workdayJobsResponse, error) {
-	if indiaFacet {
-		resp, err := w.postSearch(role, offset, map[string][]string{
-			"locationCountry": {workdayIndiaCountryID},
-		})
+// fetchPage runs one search request, retrying unfaceted if the tenant rejected
+// the facets (KLA answers 400 rather than ignoring them).
+func (w *WorkdayScraper) fetchPage(role string, offset int, facets map[string][]string) (*workdayJobsResponse, error) {
+	if len(facets) > 0 {
+		resp, err := w.postSearch(role, offset, facets)
 		if err == nil {
 			return resp, nil
 		}
@@ -228,9 +377,9 @@ func (w *WorkdayScraper) postSearch(role string, offset int, facets map[string][
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := httpClient.Do(req)
+	resp, err := w.doWithRetry(req, payload)
 	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
@@ -246,6 +395,43 @@ func (w *WorkdayScraper) postSearch(role string, offset int, facets map[string][
 		return nil, fmt.Errorf("decode search response: %w", err)
 	}
 	return &parsed, nil
+}
+
+// doWithRetry retries the transient statuses a Workday tenant returns under
+// load. Worth having now that twenty tenants are queried per run rather than
+// six: Broadcom answered 429 during the first full fan-out, and losing a whole
+// company's results to one throttled request is a poor trade for a short wait.
+//
+// The request body is re-wrapped per attempt because a Reader is consumed by
+// the first send, which is what makes retrying a POST safe here.
+func (w *WorkdayScraper) doWithRetry(req *http.Request, payload []byte) (*http.Response, error) {
+	const attempts = 3
+
+	var lastErr error
+	for attempt := 0; attempt < attempts; attempt++ {
+		if attempt > 0 {
+			time.Sleep(time.Duration(attempt) * time.Second)
+		}
+
+		retry := req.Clone(req.Context())
+		retry.Body = io.NopCloser(bytes.NewReader(payload))
+
+		resp, err := httpClient.Do(retry)
+		if err != nil {
+			lastErr = fmt.Errorf("request failed: %w", err)
+			continue
+		}
+
+		switch resp.StatusCode {
+		case http.StatusTooManyRequests, http.StatusInternalServerError,
+			http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+			resp.Body.Close()
+			lastErr = fmt.Errorf("unexpected status %d from %s", resp.StatusCode, w.searchEndpoint())
+			continue
+		}
+		return resp, nil
+	}
+	return nil, lastErr
 }
 
 // enrich fills in Description and PostedDate, neither of which the search
