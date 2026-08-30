@@ -22,6 +22,13 @@ type WorkdayScraper struct {
 	Tenant  string
 	Shard   string // which "wdN" host the tenant lives on, e.g. "wd1"
 	Site    string // the tenant's career site id, e.g. "nke"
+	// Host overrides the default {tenant}.{shard}.myworkdayjobs.com host.
+	// Wells Fargo is on wd1.myworkdaysite.com rather than myworkdayjobs.com.
+	Host string
+	// PublicPrefix is inserted between the host and the site id in human
+	// posting URLs. Empty for every myworkdayjobs.com tenant; Wells Fargo
+	// needs "recruiting/wf".
+	PublicPrefix string
 }
 
 func NewNikeScraper() *WorkdayScraper {
@@ -100,6 +107,28 @@ func workdayRegistrations() []Registration {
 			return &WorkdayScraper{Company: t.company, Tenant: t.tenant, Shard: t.shard, Site: t.site}
 		}})
 	}
+
+	for _, t := range []struct{ slug, company, tenant, shard, site string }{
+		{"morganstanley", "Morgan Stanley", "ms", "wd5", "External"},
+		{"citi", "Citi", "citi", "wd5", "2"},
+		{"jiostar", "JioStar", "jiostar", "wd102", "JioStar"},
+	} {
+		t := t
+		regs = append(regs, Registration{Slug: t.slug, Group: GroupIndia, New: func() Scraper {
+			return &WorkdayScraper{Company: t.company, Tenant: t.tenant, Shard: t.shard, Site: t.site}
+		}})
+	}
+
+	regs = append(regs, Registration{Slug: "wellsfargo", Group: GroupIndia, New: func() Scraper {
+		return &WorkdayScraper{
+			Company:      "Wells Fargo",
+			Tenant:       "wf",
+			Shard:        "wd1",
+			Site:         "WellsFargoJobs",
+			Host:         "wd1.myworkdaysite.com",
+			PublicPrefix: "recruiting/wf",
+		}
+	}})
 	return regs
 }
 
@@ -529,7 +558,17 @@ func workdayPostedDate(startDate string) string {
 }
 
 func (w *WorkdayScraper) baseURL() string {
+	if w.Host != "" {
+		return "https://" + w.Host
+	}
 	return fmt.Sprintf("https://%s.%s.myworkdayjobs.com", w.Tenant, w.Shard)
+}
+
+func (w *WorkdayScraper) publicBase() string {
+	if w.PublicPrefix != "" {
+		return fmt.Sprintf("%s/%s/%s", w.baseURL(), strings.Trim(w.PublicPrefix, "/"), w.Site)
+	}
+	return fmt.Sprintf("%s/%s", w.baseURL(), w.Site)
 }
 
 func (w *WorkdayScraper) searchEndpoint() string {
@@ -542,7 +581,7 @@ func (w *WorkdayScraper) publicURL(externalPath string) string {
 	if externalPath == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s/%s%s", w.baseURL(), w.Site, externalPath)
+	return w.publicBase() + externalPath
 }
 
 // detailEndpoint maps a public posting URL back to its CXS detail endpoint.
@@ -550,6 +589,6 @@ func (w *WorkdayScraper) publicURL(externalPath string) string {
 // so the externalPath is recoverable from the URL we already stored and
 // doesn't need to be threaded through the filtering steps separately.
 func (w *WorkdayScraper) detailEndpoint(publicJobURL string) string {
-	externalPath := strings.TrimPrefix(publicJobURL, fmt.Sprintf("%s/%s", w.baseURL(), w.Site))
+	externalPath := strings.TrimPrefix(publicJobURL, w.publicBase())
 	return fmt.Sprintf("%s/wday/cxs/%s/%s%s", w.baseURL(), w.Tenant, w.Site, externalPath)
 }

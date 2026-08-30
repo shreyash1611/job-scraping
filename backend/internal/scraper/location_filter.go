@@ -94,14 +94,20 @@ func isIndiaCountryCode(phrase []string) bool {
 }
 
 func looksLikeIndiaCountryCode(words []string) bool {
-	hasCode := false
-	for _, word := range words {
-		if word == "in" || word == "ind" {
-			hasCode = true
-			break
+	hasIND := false
+	inAtEdge := false
+	for i, word := range words {
+		if word == "ind" {
+			hasIND = true
+		}
+		if word == "in" && (i == 0 || i == len(words)-1) {
+			// Two-letter "IN" is only a country code at the edge of the
+			// token list (IN-Pune, Pune, IN). The English preposition in
+			// "Hybrid in Santa Clara" sits in the middle and is not India.
+			inAtEdge = true
 		}
 	}
-	if !hasCode {
+	if !hasIND && !inAtEdge {
 		return false
 	}
 	for _, word := range words {

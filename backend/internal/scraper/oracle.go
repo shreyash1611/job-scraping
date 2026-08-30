@@ -26,6 +26,9 @@ type OracleScraper struct {
 	// answers identically for every value tried, but it is a required
 	// parameter so it stays configurable.
 	SiteNumber string
+	// SiteName is the human path segment in apply links, which is not
+	// always the same as SiteNumber. Empty falls back to Company.
+	SiteName string
 }
 
 const (
@@ -236,14 +239,12 @@ func (o *OracleScraper) detail(publicURL string) (string, error) {
 
 func (o *OracleScraper) publicURL(id string) string {
 	return fmt.Sprintf("https://%s/hcmUI/CandidateExperience/en/sites/%s/job/%s",
-		o.Host, o.SiteName(), id)
+		o.Host, o.siteName(), id)
 }
 
-// SiteName is the human-readable site segment used in apply links, which is
-// not the same value as SiteNumber.
-func (o *OracleScraper) SiteName() string {
-	if o.Company == "Uber" {
-		return "UberCareers"
+func (o *OracleScraper) siteName() string {
+	if o.SiteName != "" {
+		return o.SiteName
 	}
 	return o.Company
 }
@@ -270,6 +271,23 @@ func oracleRegistrations() []Registration {
 				Company:    "Uber",
 				Host:       "iaziqy.fa.ocs.oraclecloud.com",
 				SiteNumber: "CX_1",
+				SiteName:   "UberCareers",
+			}
+		}},
+		{Slug: "jpmorgan", Group: GroupIndia, New: func() Scraper {
+			return &OracleScraper{
+				Company:    "JP Morgan",
+				Host:       "jpmc.fa.oraclecloud.com",
+				SiteNumber: "CX_1001",
+				SiteName:   "CX_1001",
+			}
+		}},
+		{Slug: "dpworld", Group: GroupIndia, New: func() Scraper {
+			return &OracleScraper{
+				Company:    "DP World",
+				Host:       "ehpv.fa.em2.oraclecloud.com",
+				SiteNumber: "CX_1",
+				SiteName:   "CX_1",
 			}
 		}},
 	}

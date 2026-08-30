@@ -41,7 +41,6 @@ func greenhouseRegistrations() []Registration {
 		{"zscaler", "Zscaler", "zscaler", GroupProduct},
 		{"gitlab", "GitLab", "gitlab", GroupProduct},
 		{"mongodb", "MongoDB", "mongodb", GroupProduct},
-		{"phonepe", "PhonePe", "phonepe", GroupProduct},
 		{"rubrik", "Rubrik", "rubrik", GroupProduct},
 		{"netskope", "Netskope", "netskope", GroupProduct},
 		{"twilio", "Twilio", "twilio", GroupProduct},
@@ -77,6 +76,8 @@ func greenhouseRegistrations() []Registration {
 		{"scaleai", "Scale AI", "scaleai", GroupProduct},
 		{"groww", "Groww", "groww", GroupProduct},
 		{"vercel", "Vercel", "vercel", GroupProduct},
+		{"hackerrank", "HackerRank", "hackerrank", GroupIndia},
+		{"druva", "Druva", "druva", GroupIndia},
 	}
 
 	regs := make([]Registration, 0, len(boards))

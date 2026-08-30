@@ -26,6 +26,8 @@ func TestFilterByLocation(t *testing.T) {
 		{"IN-Pune", true, "Snowflake-style India ISO prefix"},
 		{"IN Remote India", true, "Confluent-style India remote"},
 		{"US-IN-Remote", false, "Indiana, not India"},
+		{"Hybrid in Santa Clara, CA", false, `"IN" must not match English "in"`},
+		{"Remote in San Francisco Bay Area", false, "preposition in, not the country"},
 
 		// Everything below reached the sheet as an India role before the
 		// word-boundary fix.

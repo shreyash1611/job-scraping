@@ -22,6 +22,12 @@ const (
 	// Ashby. It holds the most companies by count but is the cheapest to
 	// run, because those boards return everything in a single request.
 	GroupProduct = 3
+
+	// GroupIndia is the India-heavy set: domestic product companies plus
+	// the banks and funds that hire engineers here. It is a separate n8n
+	// workflow on purpose, even when a company happens to sit on Greenhouse
+	// or Lever like the product group.
+	GroupIndia = 4
 )
 
 // Registration binds a route slug to the scraper that serves it.
@@ -45,6 +51,9 @@ func Registry() []Registration {
 	all = append(all, ashbyRegistrations()...)
 	all = append(all, oracleRegistrations()...)
 	all = append(all, talentAPIRegistrations()...)
+	all = append(all, smartRecruitersRegistrations()...)
+	all = append(all, leverRegistrations()...)
+	all = append(all, deshawRegistrations()...)
 
 	sort.Slice(all, func(i, j int) bool { return all[i].Slug < all[j].Slug })
 	return all
