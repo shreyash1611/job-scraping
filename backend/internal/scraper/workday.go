@@ -129,6 +129,13 @@ func workdayRegistrations() []Registration {
 			PublicPrefix: "recruiting/wf",
 		}
 	}})
+
+	// Postman left Greenhouse for this tenant sometime after 2026-08-24.
+	// boards-api.greenhouse.io/postman now 404s; their careers page JS
+	// labels the source as workday_cxs.
+	regs = append(regs, Registration{Slug: "postman", Group: GroupProduct, New: func() Scraper {
+		return &WorkdayScraper{Company: "Postman", Tenant: "postman", Shard: "wd108", Site: "careers"}
+	}})
 	return regs
 }
 

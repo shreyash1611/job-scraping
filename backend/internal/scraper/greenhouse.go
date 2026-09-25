@@ -49,7 +49,6 @@ func greenhouseRegistrations() []Registration {
 		{"abnormal", "Abnormal Security", "abnormalsecurity", GroupProduct},
 		{"sumologic", "Sumo Logic", "sumologic", GroupProduct},
 		{"newrelic", "New Relic", "newrelic", GroupProduct},
-		{"postman", "Postman", "postman", GroupProduct},
 		{"samsara", "Samsara", "samsara", GroupProduct},
 		{"airbnb", "Airbnb", "airbnb", GroupProduct},
 		{"elastic", "Elastic", "elastic", GroupProduct},
