@@ -81,9 +81,9 @@ func handleScrapeAll(registry []scraper.Registration) http.HandlerFunc {
 		selected := registry
 		if raw := r.URL.Query().Get("group"); raw != "" {
 			group, err := strconv.Atoi(raw)
-			if err != nil || group < 1 || group > 4 {
+			if err != nil || group < 1 || group > 5 {
 				writeJSON(w, http.StatusBadRequest, map[string]string{
-					"error": "group must be 1 (core), 2 (enterprise), 3 (product) or 4 (india)",
+					"error": "group must be 1 (core), 2 (enterprise), 3 (product), 4 (india) or 5 (quant)",
 				})
 				return
 			}

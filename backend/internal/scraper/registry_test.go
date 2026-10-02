@@ -13,13 +13,13 @@ func TestEveryRegistrationHasAGroup(t *testing.T) {
 			t.Errorf("duplicate slug %q", reg.Slug)
 		}
 		seen[reg.Slug] = true
-		if reg.Group < GroupCore || reg.Group > GroupIndia {
-			t.Errorf("%s has group %d, want 1-4", reg.Slug, reg.Group)
+		if reg.Group < GroupCore || reg.Group > GroupQuant {
+			t.Errorf("%s has group %d, want 1-5", reg.Slug, reg.Group)
 		}
 		counts[reg.Group]++
 	}
-	if counts[GroupCore] == 0 || counts[GroupEnterprise] == 0 || counts[GroupProduct] == 0 || counts[GroupIndia] == 0 {
+	if counts[GroupCore] == 0 || counts[GroupEnterprise] == 0 || counts[GroupProduct] == 0 || counts[GroupIndia] == 0 || counts[GroupQuant] == 0 {
 		t.Errorf("a group is empty: %+v", counts)
 	}
-	t.Logf("core=%d enterprise=%d product=%d india=%d", counts[GroupCore], counts[GroupEnterprise], counts[GroupProduct], counts[GroupIndia])
+	t.Logf("core=%d enterprise=%d product=%d india=%d quant=%d", counts[GroupCore], counts[GroupEnterprise], counts[GroupProduct], counts[GroupIndia], counts[GroupQuant])
 }

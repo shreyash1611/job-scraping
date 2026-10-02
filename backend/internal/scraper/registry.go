@@ -28,6 +28,10 @@ const (
 	// workflow on purpose, even when a company happens to sit on Greenhouse
 	// or Lever like the product group.
 	GroupIndia = 4
+
+	// GroupQuant is prop shops, HFT firms and quant funds. Same idea as
+	// GroupIndia: its own workflow, even when the board is Greenhouse.
+	GroupQuant = 5
 )
 
 // Registration binds a route slug to the scraper that serves it.
