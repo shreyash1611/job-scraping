@@ -154,6 +154,9 @@ func ashbyRegistrations() []Registration {
 		{"miro", "Miro", "miro"},
 		{"perplexity", "Perplexity", "perplexity"},
 		{"sierra", "Sierra", "sierra"},
+		// Amplitude left Greenhouse; boards-api.greenhouse.io/amplitude
+		// 404s and amplitude.com/careers now embeds this Ashby board.
+		{"amplitude", "Amplitude", "amplitude"},
 	}
 
 	regs := make([]Registration, 0, len(boards))

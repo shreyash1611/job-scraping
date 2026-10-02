@@ -67,7 +67,6 @@ func greenhouseRegistrations() []Registration {
 		{"instacart", "Instacart", "instacart", GroupProduct},
 		{"lyft", "Lyft", "lyft", GroupProduct},
 		{"asana", "Asana", "asana", GroupProduct},
-		{"amplitude", "Amplitude", "amplitude", GroupProduct},
 		{"affirm", "Affirm", "affirm", GroupProduct},
 		{"chime", "Chime", "chime", GroupProduct},
 		{"wise", "Wise", "wise", GroupProduct},
